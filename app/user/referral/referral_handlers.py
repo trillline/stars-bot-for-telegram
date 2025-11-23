@@ -18,9 +18,7 @@ async def show_referral_system(callback: CallbackQuery):
         text = (f"👥<b>Реферальная система</b>\n"
                 f"\nЧто-то пошло не так...😔\nПопробуйте просмотреть профиль позже.")
     else:
-        bot_name = await RAMdata.get("bot_username")
-        bot_clean_name = str(bot_name)[1:].strip('\'')
-        referral_link = f"https://t.me/{bot_clean_name}?start={callback.from_user.id}"
+        referral_link = f"https://t.me/StarsCAPITANbot?start={callback.from_user.id}"
         text = (f"👥<b>Реферальная программа</b>\n"
                 f"\nПриглашайте друзей по вашей уникальной ссылке и получайте прибыль с их покупок!\n"
                 f"\n📊<b>Ваша статистика:</b>\n"
