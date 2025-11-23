@@ -10,10 +10,10 @@ class BotConfig:
     bot_token: str
     admin_id: int
 
-@dataclass
-class CardlinkSettings:
-    api_key: str
-    shop_id: str
+#@dataclass
+#class CardlinkSettings:
+#    api_key: str
+#    shop_id: str
 
 @dataclass
 class CryptoBotConfig:
@@ -55,8 +55,8 @@ class Config:
     bot: BotConfig
     visuals: VisualConfig
     cryptobot: CryptoBotConfig
-    cardlink: CardlinkSettings
-    fragment: FragmentConfig
+ #   cardlink: CardlinkSettings
+  #  fragment: FragmentConfig
     redis: RedisConfig
     db: DatabaseConfig
     links: LinkConfig
@@ -91,16 +91,15 @@ def load_config() -> Config:
         cryptobot=CryptoBotConfig(
             api_key=os.getenv("CRYPTOBOT_TOKEN")
         ),
-        cardlink=CardlinkSettings(
-            api_key=os.getenv("CARDLINK_TOKEN"),
-            shop_id=os.getenv("CARDLINK_SHOP_ID")
-        ),
-        fragment=FragmentConfig(
-            api_key=os.getenv("FRAGMENT_API"),
-            phone_number=os.getenv("FRAGMENT_PHONENUM"),
-            mnemonics=os.getenv("FRAGMENT_MNEMONICS"),
-            jwt_token=os.getenv("FRAGMENT_TOKEN")
-        )
+     #   cardlink=CardlinkSettings(
+     #       api_key=os.getenv("CARDLINK_TOKEN"),
+     #       shop_id=os.getenv("CARDLINK_SHOP_ID")
+     #   )
+       # fragment=FragmentConfig(
+       #     api_key=os.getenv("FRAGMENT_API"),
+       #     phone_number=os.getenv("FRAGMENT_PHONENUM"),
+       #     mnemonics=os.getenv("FRAGMENT_MNEMONICS"),
+       #     jwt_token=os.getenv("FRAGMENT_TOKEN"))
     )
 
 
