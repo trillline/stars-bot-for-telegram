@@ -19,6 +19,7 @@ class BotConfig:
 @dataclass
 class CryptoBotConfig:
     api_key: str
+    url: str
 
 @dataclass
 class FragmentConfig:
@@ -91,7 +92,8 @@ def load_config() -> Config:
             support_link=os.getenv("SUPPORT_LINK")
         ),
         cryptobot=CryptoBotConfig(
-            api_key=os.getenv("CRYPTOBOT_TOKEN")
+            api_key=os.getenv("CRYPTOBOT_TOKEN"),
+            url=os.getenv("CRYPTOBOT_URL")
         ),
      #   cardlink=CardlinkSettings(
      #       api_key=os.getenv("CARDLINK_TOKEN"),
