@@ -41,6 +41,17 @@ async def initialize_user(session:AsyncSession, telegram_id, username, **data_us
         await UserDAO.add(session,telegram_id=telegram_id,username=username,**data_user)
 
 @connection
+async def check_referral_exists(session:AsyncSession, user_id):
+
+    stmt = select(User).filter_by(telegram_id=user_id)
+    result = await session.execute(stmt)
+    user = result.one_or_none()
+    if user is None:
+        return False
+    else:
+        return True
+
+@connection
 async def get_total_stars_by_user(session: AsyncSession, telegram_id: int):
     stmt_total_stars = select(func.sum(Payment.amount)).filter_by(sender_id=telegram_id, product="stars", status="paid")
     result_star = await session.execute(stmt_total_stars)

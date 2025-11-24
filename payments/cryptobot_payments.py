@@ -7,7 +7,7 @@ from config import load_config
 from logs.logging_bot import logger
 
 config = load_config()
-base_url = "https://pay.crypt.bot/api"
+base_url = "https://testnet-pay.crypt.bot/api"
 api_key = config.cryptobot.api_key
 
 async def create_invoice(amount: float, description: str) -> Dict[str, Any]:

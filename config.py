@@ -9,6 +9,7 @@ load_dotenv()
 class BotConfig:
     bot_token: str
     admin_id: int
+    username: str
 
 #@dataclass
 #class CardlinkSettings:
@@ -66,7 +67,8 @@ def load_config() -> Config:
     return Config(
         bot = BotConfig(
             bot_token= os.getenv("BOT_TOKEN"),
-            admin_id=int(os.getenv("ADMIN_ID"))
+            admin_id=int(os.getenv("ADMIN_ID")),
+            username=os.getenv("BOT_USERNAME")
         ),
         visuals = VisualConfig(
             photo_file = FSInputFile(path=os.path.join(os.path.join(os.path.dirname(os.path.abspath(__file__)),"all_medias"), 'photo_bot.jpg'))
