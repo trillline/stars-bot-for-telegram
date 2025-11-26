@@ -36,7 +36,8 @@ accept_entered_username_stars_keyboard=InlineKeyboardMarkup(inline_keyboard=[
 
 Payment_methods_stars_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     #[InlineKeyboardButton(text="🇷🇺 СБП | Рубли ", callback_data="sbp_payment_stars")],
-    [InlineKeyboardButton(text="💎 CryptoBot", callback_data="cryptobot_payment_stars")],
+    [InlineKeyboardButton(text="🪙 CryptoBot | Крипта", callback_data="cryptobot_payment_stars")],
+    [InlineKeyboardButton(text="💎 CrystalPay | Крипта", callback_data="crystalpay_payment_stars")],
     [InlineKeyboardButton(text="👥 Реферальный баланс", callback_data="referrer_balance_payment_stars")],
     [InlineKeyboardButton(text="🔙 Назад", callback_data="choose_stars_package")]
 ])
@@ -57,4 +58,9 @@ def cryptobot_payment_keyboard(pay_url):
     [InlineKeyboardButton(text="🔙 Назад", callback_data='buy_stars_back')]
 ])
 
+def crystalpay_payment_keyboard(pay_url):
+    return InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="💳 Оплатить CrystalPay", url = pay_url)],
+    [InlineKeyboardButton(text="🔙 Назад", callback_data='buy_stars_back')]
+])
 

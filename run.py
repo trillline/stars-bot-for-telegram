@@ -23,12 +23,14 @@ from app.admin.technical_mode.mode import technical_router
 from app.admin.broadcast.broadcast_menu import broadcast_router
 from app.admin.checking_order.check_order import checkOrder_router
 from settings import set_default_settings
+from payments.webhook_server import run_webhook_server
+from fragment.fragment_queue_buying import purchase_worker, purchase_queue
 
-#from fragment.fragment_queue_buying import purchase_worker, purchase_queue
 
 async def start_bot():
 
     config = cnfg.load_config()
+
 
     try:
         fsm_redis = redis.asyncio.Redis(host=config.redis.host, port=config.redis.port, db=config.redis.db_fsm)
@@ -43,6 +45,10 @@ async def start_bot():
     dp = Dispatcher(storage=storage)
     logger.info("Dispatcher created")
 
+    asyncio.create_task(run_webhook_server(bot))
+
+    await asyncio.sleep(5)
+
     dp.include_router(main_router)
     dp.include_routers(premium_router, stars_router, info_router, profile_router, referral_router)
     dp.include_routers(admin_menu_router, price_settings_router,
@@ -56,10 +62,10 @@ async def start_bot():
 
     logger.info("\n START \n")
 
-   # asyncio.create_task(purchase_worker())
+    asyncio.create_task(purchase_worker())
 
-   # await asyncio.gather(dp.start_polling(bot),     server_main())
     await dp.start_polling(bot)
+
 
 
 if __name__ == "__main__":

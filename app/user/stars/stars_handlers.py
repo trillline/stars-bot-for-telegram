@@ -20,6 +20,9 @@ from payments.cryptobot_check_payment import check_payment_loop
 
 from payments.cryptobot_payments import get_current_rate
 from notifications.notifications_admin import notify_admin_about_payment
+from notifications.notifications_admin import notify_if_fragment_balance_is_not_enough
+
+import payments.crystalpay as Crystalpay
 
 stars_router = Router()
 config = load_config()
@@ -298,12 +301,15 @@ async def payment_to_ref_balance_for_purchasing_stars(callback: CallbackQuery, s
 
     if balance >= amount_fiat:
 
+        await notify_if_fragment_balance_is_not_enough(amount_fiat=amount_fiat, bot=bot)
+
         order_number = uuid.uuid4().hex[:16]
         data_payment = {"payment_method": "referrer_balance", "cost": amount_fiat, "fee": 0,
                         "total_cost": amount_fiat,
                         "sender_id": user_id, "product": "stars", "amount": int(data["amount"]),
                         "invoice_id": order_number,
                         "recipient_username": data["username"], "status":"paid"}
+
         await add_payment(data=data_payment)  # добавляем в БД данные о платеже
         new_balance = round((balance - amount_fiat) / usdt_to_rub, 4)
         logger.info(f"new balance = {new_balance}")
@@ -319,5 +325,63 @@ async def payment_to_ref_balance_for_purchasing_stars(callback: CallbackQuery, s
         await callback.message.edit_caption(caption=f"❌ <b>Недостаточно средств на балансе.</b>\n\n💵 Приглашайте друзей и зарабатывайте с их покупок.",
                                             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                                                 [InlineKeyboardButton(text="🔙 Назад", callback_data="buy_stars_back")]
+                                            ]),
+                                            parse_mode="HTML")
+
+@stars_router.callback_query(F.data=="crystalpay_payment_stars")
+async def payment_to_crystalpay_for_purchasing_star(callback: CallbackQuery, state: FSMContext,bot: Bot):
+    await callback.answer()
+
+    await state.set_state(None)
+    await state.update_data(type_payment="crystalpay")
+    data = await state.get_data()
+    amount = data.get("amount")
+    star_price = await get_setting(key="star_course")  # цена одной звезды в рублях (тип данных string)
+    fee = await get_setting(key="crystalpay_fee")
+    amount_fiat = round(int(amount) * float(star_price), 2)
+    recipient_username = data.get("username")
+
+    created_invoice = await Crystalpay.create_invoice(amount=amount_fiat,
+                                                     sender_user_id=callback.from_user.id,
+                                                    recipient_username=recipient_username,
+                                                    product = "stars",
+                                                    amount_prod=int(amount))
+
+    invoice_status = created_invoice.get("status")
+    invoice_error = created_invoice.get("error")
+    logger.info(f"Invoice status: {invoice_status} , invoice error: {invoice_error}")
+    if created_invoice.get("status") == 200 and not created_invoice.get("error"):
+        pay_url = created_invoice.get("payment_url")
+        invoice_id = created_invoice.get("invoice_id")
+
+        data_payment = {"payment_method": "crystalpay", "cost": amount_fiat, "fee": int(fee),
+                        "total_cost": amount_fiat,
+                        "sender_id": callback.from_user.id, "product": "stars", "amount": int(data["amount"]),
+                        "invoice_id": invoice_id,
+                        "recipient_username": data["username"]}
+
+        await add_payment(data=data_payment)  # добавляем в БД данные о платеже
+
+        await callback.message.edit_caption(caption=f"""
+💫Для покупки {amount} звёзд:
+    
+<b>1. Нажмите кнопку "Оплатить CrystalPay"</b>
+<b>2. Выберите криптовалюту на открывшейся странице</b>
+<b>3. Завершите оплату</b>
+    
+💡Номер заказа: {invoice_id}
+    
+👤Получатель: @{data['username']}
+💵Сумма к оплате: {amount_fiat} ₽ 
+    
+✅ После оплаты бот получит оповещение и автоматически обработает заказ""",
+                                            reply_markup=kb.crystalpay_payment_keyboard(pay_url),
+                                            parse_mode="HTML")
+    else:
+        logger.info(f"Invoice errors: {created_invoice.get('errors')}")
+        await callback.message.edit_caption(caption=f"<b>😔 Что-то пошлое не так...</b>\n"
+                                                    f"\nПопробуйте создать заказ заново.",
+                                            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                                                [InlineKeyboardButton(text="🏠 На главное меню", callback_data="to_main_menu")]
                                             ]),
                                             parse_mode="HTML")

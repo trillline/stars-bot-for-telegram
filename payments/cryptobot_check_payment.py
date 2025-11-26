@@ -1,13 +1,13 @@
 import asyncio
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-
 from payments.cryptobot_payments import get_invoice_info
 from database.requests import update_status_payment, give_referrer_reward, update_fragment_id
 from aiogram import Bot
 from logs.logging_bot import logger
-from notifications.notifications_admin import notify_admin_about_payment
+from notifications.notifications_admin import notify_admin_about_payment, notify_if_fragment_balance_is_not_enough
 import time
+from fragment.fragment_queue_buying import purchase_queue
 
 
 async def check_payment_loop(invoice_id: str, user_id: int, username: str,bot: Bot, product:str, amount_product):
@@ -24,9 +24,11 @@ async def check_payment_loop(invoice_id: str, user_id: int, username: str,bot: B
             logger.info(f"Прошло {time.time() - start_time} секунд. Статус: {invoice.get('status', 'error')}")
             if invoice["status"] == "paid":
 
-                await update_status_payment(invoice_id=invoice_id,status= "paid")
-
                 amount_rub = float(invoice["amount"])
+
+                await notify_if_fragment_balance_is_not_enough(amount_fiat=amount_rub, bot=bot)
+
+                await update_status_payment(invoice_id=invoice_id,status= "paid")
 
                 await give_referrer_reward(referral_id=user_id, amount=amount_rub)
 
@@ -41,8 +43,7 @@ async def check_payment_loop(invoice_id: str, user_id: int, username: str,bot: B
                                            [InlineKeyboardButton(text="ОК", callback_data="to_main_menu")]
                                     ]))
 
-               # await purchase_queue.put({"username":username, "amount":amount_product, "product":product, "invoice_id":invoice_id, "bot":bot})
-                await notify_admin_about_payment(invoice_id=invoice_id, username_recipient=username, product=product, amount=amount_product, bot=bot)
+                await purchase_queue.put({"username":username, "amount":amount_product, "product":product, "invoice_id":invoice_id, "bot":bot})
                 return
 
             # 3️⃣ Истёк срок действия

@@ -1,4 +1,6 @@
 import os
+
+from aiogram.loggers import webhook
 from aiogram.types import FSInputFile
 from dotenv import load_dotenv
 from dataclasses import dataclass
@@ -11,10 +13,17 @@ class BotConfig:
     admin_id: int
     username: str
 
-#@dataclass
-#class CardlinkSettings:
-#    api_key: str
-#    shop_id: str
+@dataclass
+class FragmentConfig:
+    jwt_token:str
+
+
+@dataclass
+class CrystalPayConfig:
+    url: str
+    secret: str
+    salt: str
+    login: str
 
 @dataclass
 class CryptoBotConfig:
@@ -23,9 +32,9 @@ class CryptoBotConfig:
 
 @dataclass
 class FragmentConfig:
-    phone_number: str
-    mnemonics: str
-    api_key: str
+    #phone_number: str
+   # mnemonics: str
+   # api_key: str
     jwt_token: str
 
 @dataclass
@@ -49,6 +58,7 @@ class DatabaseConfig:
 
 @dataclass
 class LinkConfig:
+    webhook_url: str
     news_link: str
     support_link: str
 
@@ -57,8 +67,8 @@ class Config:
     bot: BotConfig
     visuals: VisualConfig
     cryptobot: CryptoBotConfig
- #   cardlink: CardlinkSettings
-  #  fragment: FragmentConfig
+    crystalpay: CrystalPayConfig
+    fragment: FragmentConfig
     redis: RedisConfig
     db: DatabaseConfig
     links: LinkConfig
@@ -88,6 +98,7 @@ def load_config() -> Config:
             port=int(os.getenv("DB_PORT"))
         ),
         links = LinkConfig(
+            webhook_url = os.getenv("WEBHOOK_URL"),
             news_link=os.getenv("NEWS_LINK"),
             support_link=os.getenv("SUPPORT_LINK")
         ),
@@ -95,15 +106,14 @@ def load_config() -> Config:
             api_key=os.getenv("CRYPTOBOT_TOKEN"),
             url=os.getenv("CRYPTOBOT_URL")
         ),
-     #   cardlink=CardlinkSettings(
-     #       api_key=os.getenv("CARDLINK_TOKEN"),
-     #       shop_id=os.getenv("CARDLINK_SHOP_ID")
-     #   )
-       # fragment=FragmentConfig(
-       #     api_key=os.getenv("FRAGMENT_API"),
-       #     phone_number=os.getenv("FRAGMENT_PHONENUM"),
-       #     mnemonics=os.getenv("FRAGMENT_MNEMONICS"),
-       #     jwt_token=os.getenv("FRAGMENT_TOKEN"))
-    )
+        crystalpay=CrystalPayConfig(
+            url=os.getenv("CRYSTALPAY_URL"),
+            secret=os.getenv("CRYSTALPAY_SECRET"),
+            salt=os.getenv("CRYSTALPAY_SALT"),
+            login=os.getenv("CRYSTALPAY_LOGIN")
+        ),
+        fragment=FragmentConfig(
+            jwt_token=os.getenv("FRAGMENT_TOKEN")
+    ))
 
 

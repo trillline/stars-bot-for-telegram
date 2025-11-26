@@ -7,6 +7,20 @@ from sqlalchemy import select, update, func, delete
 from database.models import Setting
 from logs.logging_bot import logger
 
+
+
+async def check_def_settings(session: AsyncSession, key:str,value:str, settings):
+    if not any(k["key"] == key for k in settings):
+        await SettingDAO.add(session=session, key=key, value=value)
+        logger.info(f"{key} -> PostgreSQL (DEFAULT)")
+
+    key_in_redis = await RAMdata.get(key)
+
+    if not key_in_redis:
+        await get_from_db_set_to_redis(session=session, key=key)
+        logger.info(f"{key} -> Redis (from PostgreSQL, set_settings")
+
+
 # При первом запуске бота и отсутствии записей в БД и в Redis-БД добавляет необходимые для работы бота настройки в обе БД
 # Функция установки настроек по умолчанию
 @connection
@@ -20,47 +34,12 @@ async def set_default_settings(session: AsyncSession):
         for z in setting
     ] # СПИСОК НАСТРОЕК
 
-    if not any(k["key"] == "star_course"  for k in settings):
-        await SettingDAO.add(session, key="star_course", value="1.42")
-        logger.info("star_course -> PostgreSQL (DEFAULT)")
-
-    if not any(k["key"] == "price_premium_3" for k in settings):
-        await SettingDAO.add(session, key="price_premium_3", value="1150")
-        logger.info("price_premium_3 -> PostgreSQL (DEFAULT)")
-
-    if not any(k["key"] == "price_premium_6" for k in settings):
-        await SettingDAO.add(session, key="price_premium_6", value="1550")
-        logger.info("price_premium_6 -> PostgreSQL (DEFAULT)")
-
-    if not any(k["key"] == "price_premium_12" for k in settings):
-        await SettingDAO.add(session, key="price_premium_12", value="2500")
-        logger.info("price_premium_12 -> PostgreSQL (DEFAULT)")
-
-    if not any(k["key"] == "cryptobot_fee" for k in settings):
-        await SettingDAO.add(session, key="cryptobot_fee", value="2")
-        logger.info("cryptobot_fee -> PostgreSQL (DEFAULT)")
-
-    stars_course_redis = await RAMdata.get("star_course")
-    price_premium_3 = await RAMdata.get("price_premium_3")
-    price_premium_6 = await RAMdata.get("price_premium_6")
-    price_premium_12 = await RAMdata.get("price_premium_12")
-    cryptobot_fee = await RAMdata.get("cryptobot")
-
-    if not stars_course_redis:
-        await get_from_db_set_to_redis(session, "star_course")
-        logger.info("star_course -> Redis (from PostgreSQL, set_settings)")
-    if not price_premium_3:
-        await get_from_db_set_to_redis(session, "price_premium_3")
-        logger.info("price_premium_3 -> Redis (from PostgreSQL, set_settings)")
-    if not price_premium_6:
-        await get_from_db_set_to_redis(session, "price_premium_6")
-        logger.info("price_premium_6 -> Redis (from PostgreSQL, set_settings)")
-    if not price_premium_12:
-        await get_from_db_set_to_redis(session, "price_premium_12")
-        logger.info("price_premium_12 -> Redis (from PostgreSQL, set_settings)")
-    if not cryptobot_fee:
-        await get_from_db_set_to_redis(session, "cryptobot_fee")
-        logger.info("cryptobot_fee -> Redis (from PostgreSQL, set_settings")
+    await check_def_settings(session=session,key= "star_course", value="1.42", settings=settings)
+    await check_def_settings(session=session,key= "price_premium_3", value="1150", settings=settings)
+    await check_def_settings(session=session, key="price_premium_6", value="1550", settings=settings)
+    await check_def_settings(session=session, key="price_premium_12", value="2500", settings=settings)
+    await check_def_settings(session=session, key="cryptobot_fee", value="3", settings=settings)
+    await check_def_settings(session=session, key="crystalpay_fee", value="0", settings=settings)
 
 
 

@@ -15,7 +15,10 @@ import payments.cryptobot_payments as Cryptobot
 from database.requests import add_payment, get_user_referrer_balance, update_referrer_balance
 from payments.cryptobot_check_payment import check_payment_loop
 from payments.cryptobot_payments import get_current_rate
-from notifications.notifications_admin import notify_admin_about_payment
+from notifications.notifications_admin import notify_admin_about_payment, notify_if_fragment_balance_is_not_enough
+from logs.logging_bot import logger
+from fragment.fragment_queue_buying import purchase_queue
+import payments.crystalpay as Crystalpay
 
 config = load_config()
 
@@ -222,7 +225,7 @@ async def payment_to_ref_balance_for_purchasing_premium(callback: CallbackQuery,
     balance = float(result) * usdt_to_rub
 
     if balance >= int(price):
-
+        await notify_if_fragment_balance_is_not_enough(amount_fiat=float(price), bot=bot)
         order_number = uuid.uuid4().hex[:16]
         data_payment = {"payment_method": "referrer_balance", "cost": int(price), "fee": 0,
                         "total_cost": int(price),
@@ -248,3 +251,57 @@ async def payment_to_ref_balance_for_purchasing_premium(callback: CallbackQuery,
                                             parse_mode="HTML")
 
 
+@premium_router.callback_query(F.data == "crystalpay_payment_premium")
+async def payment_to_crystalpay_for_purchasing_star(callback: CallbackQuery, state: FSMContext, bot: Bot):
+    await callback.answer()
+
+    await state.set_state(None)
+    await state.update_data(type_payment="crystalpay")
+    data = await state.get_data()
+    months = data.get("month")
+    price = await get_setting(f"price_premium_{months}")  # приходит в виде строки
+    fee = await get_setting("crystalpay_fee")  # приходит в виде строки
+    created_invoice = await Crystalpay.create_invoice(amount=float(price),
+                                                    sender_user_id=callback.from_user.id,
+                                                      recipient_username=data.get("username"),
+                                                      product="premium",
+                                                      amount_prod=months)
+    if created_invoice.get("status") == 200 and not created_invoice.get("error"):
+        pay_url = created_invoice.get("payment_url")
+        invoice_id = created_invoice.get("invoice_id")
+
+        data_payment = {"payment_method": "crystalpay", "cost": float(price), "fee": int(fee),
+                        "total_cost": float(price),
+                        "sender_id": callback.from_user.id, "product": "premium", "amount": int(data["month"]),
+                        "invoice_id": invoice_id, "recipient_username": data["username"]}
+
+        await add_payment(data=data_payment)  # добавляем в БД данные о платеже
+
+        asyncio.create_task(check_payment_loop(invoice_id=invoice_id, user_id=callback.from_user.id, bot=bot,
+                                               product="premium", username=data["username"],
+                                               amount_product=data["month"]))  # проверка платежа
+
+        await callback.message.edit_caption(caption=f"""
+👑Для покупки премиум-подписки на {months} мес:
+    
+<b>1. Нажмите кнопку "Оплатить Crystalpay"</b>
+<b>2. Выберите криптовалюту на открывшейся странице</b>
+<b>3. Завершите оплату</b>
+    
+💡Номер заказа: {invoice_id}
+
+👤Получатель: @{data['username']}
+💵Сумма к оплате: {price}₽ 
+    
+✅ После оплаты бот получит оповещение и автоматически обработает заказ""",
+                                            reply_markup=kb.cryptobot_premium_keyboard(pay_url),
+                                            parse_mode="HTML")
+    else:
+        logger.info(f"Invoice errors: {created_invoice.get('errors')}")
+        await callback.message.edit_caption(caption=f"<b>😔 Что-то пошлое не так...</b>\n"
+                                                    f"\nПопробуйте создать заказ заново.",
+                                            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                                                [InlineKeyboardButton(text="🏠 На главное меню",
+                                                                      callback_data="to_main_menu")]
+                                            ]),
+                                            parse_mode="HTML")
