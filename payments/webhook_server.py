@@ -8,7 +8,7 @@ import aiohttp
 
 from config import load_config
 from database.requests import update_status_payment, give_referrer_reward
-from notifications.notifications_admin import notify_if_fragment_balance_is_not_enough
+
 from logs.logging_bot import logger
 from fragment.fragment_queue_buying import purchase_queue
 
@@ -22,14 +22,12 @@ async def crystalpay_webhook(request):
     invoice_id = data.get("id")
     signature = data.get("signature")
     status = data.get("state")
-    extra = data.get("extra").split('_')
+    extra = data.get("extra").split('!') # восклицательный знак sep потому что username может содержать _
     sender_user_id = extra[0]
     recipient_username = extra[1]
     product = extra[2]
     amount_product = extra[3]
     amount_rub = float(data.get("rub_amount"))
-
-    await notify_if_fragment_balance_is_not_enough(amount_fiat=amount_rub, bot=bot)
 
     hash_string = f"{invoice_id}:{config.crystalpay.salt}"
     computed_hash = hashlib.sha1(hash_string.encode()).hexdigest()

@@ -4,7 +4,6 @@
 .secrets/
 config.ini
 
-bot.log
 
 .venv/
 venv/

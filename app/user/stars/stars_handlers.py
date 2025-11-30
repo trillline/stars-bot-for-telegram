@@ -19,10 +19,10 @@ from database.requests import add_payment, get_user_referrer_balance, update_ref
 from payments.cryptobot_check_payment import check_payment_loop
 
 from payments.cryptobot_payments import get_current_rate
-from notifications.notifications_admin import notify_admin_about_payment
-from notifications.notifications_admin import notify_if_fragment_balance_is_not_enough
 
-import payments.crystalpay as Crystalpay
+import payments.crystalpay_payments as Crystalpay
+
+from fragment.fragment_queue_buying import purchase_queue
 
 stars_router = Router()
 config = load_config()
@@ -39,7 +39,7 @@ async def choose_stars_owner(callback: CallbackQuery, state: FSMContext, bot: Bo
     await state.clear()
     await state.update_data(type_purchase="stars")
 
-    await callback.message.answer_photo(photo=callback.message.photo[-1].file_id,
+    await callback.message.answer_photo(photo=config.visuals.photo_file,
                                         caption="""
 ⭐<b>Покупка звёзд</b>
 
@@ -58,7 +58,7 @@ async def input_username_to_purchase_stars(callback: CallbackQuery):
     await callback.message.edit_caption(caption=f"""
 ⭐<b>Покупка звёзд</b>
 
-🔎<b>Введите username пользователя</b>, которому будем дарить звёзды:
+🔎Введите username пользователя, которому будем дарить звёзды:
 —Пример: @{callback.from_user.username}
         """,
                                         reply_markup=kb.Input_username_stars_keyboard,
@@ -113,7 +113,7 @@ async def input_user_owner_stars(message: Message, state:FSMContext):
         await state.update_data(username=message.text.replace("@", ''))  # ПОМЕНЯТЬ НА СОХРАНЕНИЕ В БД И ОЧИСТКУ ИЗ ОП
         await message.answer_photo(photo=config.visuals.photo_file,
                                    caption=f"⭐<b>Покупка звёзд</b>\n"
-                                           f"\n👤<b>Username: @{username_own_stars}</b> \n"
+                                           f"\n👤<b>Username:</b>  @{username_own_stars}\n"
                                            f"⚠️<b>Проверьте username перед покупкой!</b>",
                                    reply_markup=kb.accept_entered_username_stars_keyboard,
                                    parse_mode="HTML")
@@ -134,8 +134,8 @@ async def own_amount_stars(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_caption(caption=f"""
 <b>⭐Покупка звёзд</b>
 
-🔎<b>Введите любое количество звёзд от 50 до 100 000:</b>
-<b>— Пример: 1505</b>
+🔎Введите любое количество звёзд от 50 до 100 000:
+— Пример: 1505
 """,
                                         reply_markup= kb.Input_amount_stars_keyboard,
                                         parse_mode='HTML')
@@ -153,13 +153,13 @@ async def entered_amount_stars(callback: CallbackQuery, state:FSMContext):
     star_price = await get_setting(key="star_course") # цена одной звезды в рублях (тип данных string)
 
     await callback.message.edit_caption(photo=config.visuals.photo_file,caption=f"""
-✨<b>Выбранное количество: {amount} звёзд</b>
+✨Выбранное количество:<b> {amount} звёзд</b>
 
-👤<b>Получатель: @{data['username']}</b>
+👤<b>Получатель:</b> @{data['username']}
     
-💰<b>Стоимость: {round(int(data['amount'])*float(star_price),2)} ₽ </b>
+💰<b>Стоимость:</b> {round(int(data['amount'])*float(star_price),2)} ₽ 
     
-👇<b>Выберите метод оплаты</b>👇
+👇Выберите метод оплаты👇
             """,
                                             reply_markup=kb.Payment_methods_stars_keyboard,
                                             parse_mode='HTML')
@@ -184,13 +184,13 @@ async def entered_amount_stars(message: Message, state:FSMContext):
 
 
     await message.answer_photo(photo=config.visuals.photo_file,caption=f"""
-✨<b>Выбранное количество: {amount} звёзд</b>
+✨Выбранное количество:<b> {amount} звёзд</b>
 
-👤<b>Получатель: @{username}</b>
+👤<b>Получатель:</b> @{username}
 
-💰<b>Стоимость: {round(int(data['amount'])*float(star_price), 2)} ₽</b>
+💰<b>Стоимость:</b> {round(int(data['amount'])*float(star_price), 2)} ₽
 
-👇<b>Выберите метод оплаты</b>👇
+👇Выберите метод оплаты👇
         """,
                                         reply_markup=kb.Payment_methods_stars_keyboard,
                                         parse_mode='HTML')
@@ -204,8 +204,8 @@ async def entered_amount_stars(message:Message):
     await message.answer_photo(photo=config.visuals.photo_file,caption=f"""
 ⚠️<b>Неправильный ввод</b>⚠️
 
-🔎<b>Введите любое количество звёзд от 50 до 100 000:</b>
-<b>— Пример: 1505</b>
+🔎Введите любое количество звёзд от 50 до 100 000:
+— Пример: 1505
 """,
                                         reply_markup= kb.Input_amount_stars_keyboard,
                                         parse_mode='HTML')
@@ -298,25 +298,24 @@ async def payment_to_ref_balance_for_purchasing_stars(callback: CallbackQuery, s
     usdt_to_rub = await get_current_rate("USDT", "RUB")  # находим актуальный курс доллара
     result = await get_user_referrer_balance(user_id=user_id)
     balance = float(result) * usdt_to_rub
+    recipient_username = data.get("username")
 
     if balance >= amount_fiat:
-
-        await notify_if_fragment_balance_is_not_enough(amount_fiat=amount_fiat, bot=bot)
 
         order_number = uuid.uuid4().hex[:16]
         data_payment = {"payment_method": "referrer_balance", "cost": amount_fiat, "fee": 0,
                         "total_cost": amount_fiat,
-                        "sender_id": user_id, "product": "stars", "amount": int(data["amount"]),
+                        "sender_id": user_id, "product": "stars", "amount": int(stars_amount),
                         "invoice_id": order_number,
-                        "recipient_username": data["username"], "status":"paid"}
+                        "recipient_username": recipient_username, "status":"paid"}
 
         await add_payment(data=data_payment)  # добавляем в БД данные о платеже
         new_balance = round((balance - amount_fiat) / usdt_to_rub, 4)
         logger.info(f"new balance = {new_balance}")
-        await update_referrer_balance(user_id=user_id, new_balance=new_balance)
-
-        await notify_admin_about_payment(invoice_id=order_number, username_recipient=data["username"], product="stars",
-                                         amount=data["amount"], bot=bot)
+        await update_referrer_balance(user_id=user_id,new_balance=new_balance)
+        await purchase_queue.put(
+            {"username": recipient_username, "amount": stars_amount, "product": "stars", "invoice_id": order_number,
+             "bot": bot, "admin_message":False})
         await callback.message.edit_caption(caption=f"✅ <b>Оплата прошла успешно.</b>\n\n⭐ Номер заказа: {order_number}\nВозможны задержки до 5 минут.",
                                             parse_mode="HTML")
 

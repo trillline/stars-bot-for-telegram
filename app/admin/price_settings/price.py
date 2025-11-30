@@ -5,6 +5,7 @@ from config import load_config
 import app.admin.price_settings.keyboard as keyboard
 import app.admin.states as st
 from settings import set_setting
+from logs.logging_bot import logger
 
 price_settings_router = Router()
 
@@ -30,12 +31,16 @@ async def set_price_star(callback: CallbackQuery,state:FSMContext, bot: Bot):
 async def check_received_price_stars(message: Message, state: FSMContext):
 
     price = message.text
-    if all(list(map(lambda x: ord(x) in ([i for i in range(ord('0'), ord('9') + 1)] + [ord('.')]), price))) and price.count('.') <= 1 and (price.find('.')==1 or price.find('.')==-1) and len(price) != 2:
+    if all(list(map(lambda x: ord(x) in ([i for i in range(ord('0'), ord('9') + 1)] + [ord('.')]), price)))\
+            and price.count('.') <= 1 and (price.find('.')==1 or price.find('.')==-1) and len(price) != 2:
+
         await set_setting(key="star_course", value=price)
         await state.set_state(None)
+        logger.info("Цена 1 звезды изменена.")
         await message.answer(text=f"Цена изменена.\n\n⭐ Цена за 1 звезду = {price} ₽",
                              reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="OK 👌", callback_data="admin_panel")]]))
     else:
+        logger.warning("Ошибка. Неправильный ввод для изменения цены 1 звезды")
         await message.answer(text="Ошибка. Попробуйте ввести цену ещё раз.",
                              reply_markup=keyboard.price_settings_step3_keyboard())
 
@@ -56,12 +61,16 @@ async def check_received_price_premium(message: Message, state: FSMContext):
     price = message.text
     if all(list(map(lambda x: ord(x) in ([i for i in range(ord('0'), ord('9') + 1)] + [ord('.')]), price)))\
         and price.count('.') <= 1:
+
         data = await state.get_data()
-        await set_setting(key=f"price_premium_{data['input_price_premium']}", value=price)
+        month = data.get('input_price_premium')
+        await set_setting(key=f"price_premium_{month}", value=price)
         await state.set_state(None)
-        await message.answer(text=f"Цена изменена.\n\n👑 Цена премиум-подписки на {data['input_price_premium']} мес. = {price} ₽",
+        logger.info(f"Цена премиум-подписки на {month} месяца изменена.")
+        await message.answer(text=f"Цена изменена.\n\n👑 Цена премиум-подписки на {month} мес. = {price} ₽",
                              reply_markup=InlineKeyboardMarkup(
                                  inline_keyboard=[[InlineKeyboardButton(text="OK 👌", callback_data="admin_panel")]]))
     else:
+        logger.warning("Ошибка. Неправильный ввод для изменения цены премиум-подписки.")
         await message.answer(text="Ошибка. Попробуйте ввести цену ещё раз.",
                                  reply_markup=keyboard.price_settings_step3_keyboard())

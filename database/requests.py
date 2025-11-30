@@ -1,78 +1,82 @@
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, func
+from sqlalchemy import select, update, func, join
 
-from config import load_config
 from database.db_settings import connection
 from database.models import User, Referral, Payment
 from database.dao.dao import UserDAO, ReferralDAO, PaymentDAO
 from logs.logging_bot import logger
-from datetime import datetime, timezone
+from datetime import datetime
 from config import load_config
 from payments.cryptobot_payments import get_current_rate
+from sqlalchemy.exc import MultipleResultsFound
+from sqlalchemy import ColumnElement
 
 @connection
 async def if_username_changed_update(session: AsyncSession, tg_id:int, username:str):
+    logger.info("Проверка: совпадает ли username в БД с текущим username пользователя")
     stmt = select(User.username).filter_by(telegram_id=tg_id)
     result = await session.execute(stmt)
     db_username = result.scalar_one()
 
     if db_username != username:
+        logger.info("Username не совпадают! Изменяем запись в БД")
         stmt = (
             update(User)
-            .where(User.telegram_id == telegram_id)  # type: ignore
+            .filter_by(telegram_id=tg_id)  # type: ignore
             .values(username=username)
         )
         await session.execute(stmt)
         await session.commit()
+    else:
+        logger.info("Username совпадают!")
 
 @connection
 async def initialize_user(session:AsyncSession, telegram_id, username, **data_user):
     # получаем данные о пользователе (для проверки существования в БД)
+    logger.info(f"Ищем юзера {telegram_id} в БД")
     stmt = select(User).filter_by(telegram_id=telegram_id)
     result_user_exists = await session.execute(stmt) # получаем данные о пользователе из БД
     try:
         user =  result_user_exists.scalar_one_or_none() # возвращает объект с одной записью или None, иначе ошибка
-    except Exception:
-        logger.error(f"The user {telegram_id} is doubled in DB")
+    except MultipleResultsFound:
+        logger.error(f"Записей пользователя {telegram_id} в таблице users несколько.")
         return
     # если пользователь отсутствует
     if user is None:
+        logger.info(f"Юзера {telegram_id} нет в таблице. Добавляем.")
         await UserDAO.add(session,telegram_id=telegram_id,username=username,**data_user)
 
 @connection
 async def check_referral_exists(session:AsyncSession, user_id):
-
+    logger.info(f"Проверяем существует ли пользователь {user_id} в боте")
     stmt = select(User).filter_by(telegram_id=user_id)
     result = await session.execute(stmt)
     user = result.one_or_none()
     if user is None:
+        logger.info(f"Пользователь {user_id} не существует. ")
         return False
     else:
+        logger.info(f"Пользователь {user_id} существует")
         return True
-
-@connection
-async def get_total_stars_by_user(session: AsyncSession, telegram_id: int):
-    stmt_total_stars = select(func.sum(Payment.amount)).filter_by(sender_id=telegram_id, product="stars", status="paid")
-    result_star = await session.execute(stmt_total_stars)
-    return result_star.scalar()
-
-@connection
-async def get_total_premium_month_by_user(session: AsyncSession, telegram_id: int):
-    stmt_month_premium = select(func.sum(Payment.amount)).filter_by(sender_id=telegram_id, product="premium",
-                                                                    status="paid")
-    result_premium = await session.execute(stmt_month_premium)
-    return result_premium.scalar()
 
 @connection
 async def get_profile(session:AsyncSession, telegram_id: int):
     result_dict = {}
     try:
         # Загружаем профиль. Нужно получить поле реферальный баланс, количество купленных звёзд
-        # а также количество купленных месяцев премиум подписки. Всё это хранится в таблице users
-        result_dict["total_stars"] = await get_total_stars_by_user(telegram_id=telegram_id)
+        # А также количество купленных месяцев премиум подписки. Всё это хранится в таблице users
+        logger.info(f"Загружаем профиль пользователя {telegram_id}")
+        stmt_total_stars = select(func.sum(Payment.amount)).filter_by(sender_id=telegram_id, product="stars",
+                                                                      status="paid")
+        result_star = await session.execute(stmt_total_stars)
+        result_dict["total_stars"] = result_star.scalar()
 
-        result_dict["total_premium"] = await get_total_premium_month_by_user(telegram_id=telegram_id)
+        stmt_month_premium = select(func.sum(Payment.amount)).filter_by(sender_id=telegram_id, product="premium",
+                                                                        status="paid")
+        result_premium = await session.execute(stmt_month_premium)
+
+        result_dict["total_premium"] = result_premium.scalar()
 
         user_data = select(User.id, User.referrer_balance).filter_by(telegram_id = telegram_id)
         result_user = await session.execute(user_data)
@@ -80,17 +84,17 @@ async def get_profile(session:AsyncSession, telegram_id: int):
         usdt_to_rub = await get_current_rate("USDT", "RUB")
         result_dict["id"], result_dict["referrer_balance"] = user.id, round(float(user.referrer_balance) * usdt_to_rub,2)
 
-
         return result_dict
-
     except (Exception, StopIteration):
-        logger.error("PROFILE SELECTION ERROR")
+        logger.error(f"Ошибка загрузки профиля пользователя {telegram_id}")
         return {}
 
 @connection
 async def get_refsys_info(session: AsyncSession, telegram_id):
     result_dict = {}
     try:
+        logger.info(f"Загрузка реферальной программы пользователя {telegram_id}")
+
         stmt_amount = select(func.count(Referral.referral_id)).filter_by(referrer_id = telegram_id)
         result_amount = await session.execute(stmt_amount)
         result_dict["amount_ref"] = result_amount.scalar_one()
@@ -98,7 +102,7 @@ async def get_refsys_info(session: AsyncSession, telegram_id):
         stmt_cash = select(User.referrer_balance).filter_by(telegram_id=telegram_id)
         result_cash = await session.execute(stmt_cash)
         usdt_to_rub = await get_current_rate("USDT", "RUB")
-        cash_usdt = result_cash.scalar_one()
+        cash_usdt = result_cash.scalar()
         if cash_usdt:
             result_dict["available_cash"] = round( float(cash_usdt) * usdt_to_rub , 2)
         else:
@@ -114,37 +118,43 @@ async def get_refsys_info(session: AsyncSession, telegram_id):
         return result_dict
 
     except Exception:
-        logger.error("REFERRAL SELECTION ERROR")
+        logger.error(f"Ошибка загрузки реферальной программы пользовател {telegram_id}")
 
 @connection
 async def get_referrals(session:AsyncSession, telegram_id):
 
     try:
-        stmt = select(Referral.referral_username, Referral.earned_by_referrer).filter_by(referrer_id=telegram_id)
-        result = await session.execute(stmt)
-        rows = result.all()
+        logger.info(f"Получаем данные о рефералах пользователя {telegram_id}")
 
+
+        stmt = (
+            select(Referral.earned_by_referrer, User.username)
+            .join(User,Referral.referral_id == User.telegram_id)
+            .where(Referral.referrer_id == telegram_id)
+        )
+        result = await session.execute(stmt)
+        rows = result.fetchall()
+        logger.info(f"Rows рефералов: {rows}")
         referrals = [
         ]
 
         for row in rows:
-            data = {"referral_username":row.referral_username, "earned_by_referrer":row.earned_by_referrer}
+            data = {"referral_username":row.username if row.username is not None else "нетюзернейма", "earned_by_referrer":row.earned_by_referrer}
             referrals.append(data)
 
         return referrals
     except Exception:
-        logger.error("GET REFERRALS ERROR")
+        logger.error(f"Ошибка получения данных рефералов пользователя {telegram_id} ")
 
 
 @connection
-async def add_referral(session: AsyncSession, referrer_id, referral_id, referral_username):
+async def add_referral(session: AsyncSession, referrer_id, referral_id):
 
     stmt = select(Referral.id).filter_by(referrer_id=referrer_id, referral_id=referral_id)
     result = await session.execute(stmt)
 
     if result.scalar_one_or_none() is None:
-        await ReferralDAO.add(session, referrer_id=referrer_id, referral_id=referral_id,
-                          referral_username=referral_username,updated_at=datetime.utcnow())
+        await ReferralDAO.add(session, referrer_id=referrer_id, referral_id=referral_id,updated_at=datetime.utcnow())
 
 @connection
 async def get_common_total_stars(session: AsyncSession):
@@ -157,8 +167,10 @@ async def get_common_total_stars(session: AsyncSession):
     else:
         return 0
 
+
 @connection
 async def get_all_chat_id(session: AsyncSession):
+    logger.info("Получаем все chat_id для рассылки")
     config = load_config()
     admin_id = config.bot.admin_id
     stmt = select(User.chat_id)
@@ -170,10 +182,12 @@ async def get_all_chat_id(session: AsyncSession):
 
 @connection
 async def add_payment(session: AsyncSession, data):
+    logger.info("Добавляем запись в таблицу payments")
     await PaymentDAO.add(session, **data)
 
 @connection
 async def update_status_payment(session: AsyncSession, invoice_id: str, status: str):
+    logger.info("Обновляем статус заказа")
     stmt = update(Payment).filter_by(invoice_id=invoice_id).values(status=status, update_at = datetime.utcnow())
     await session.execute(stmt)
     await session.commit()
@@ -197,7 +211,7 @@ async def give_referrer_reward(session: AsyncSession, referral_id: int, amount: 
             earned_by_referrer=float(earned) + referrer_amount)
         await session.execute(stmt_update_ref)
 
-        # ищем текущий баланс реферра и за все время
+        # ищем текущий баланс реферра
         stmt_user_balance = select(User.referrer_balance).filter_by(telegram_id=referrer)
         res_user_balance = await session.execute(stmt_user_balance)
         user_balance = res_user_balance.scalar()
@@ -232,8 +246,10 @@ async def get_payment_info_by_id(session: AsyncSession, invoice_id):
     result = await session.execute(stmt)
     payment = result.scalar_one_or_none()
     if payment:
-        info_payment = {"payment_method":payment.payment_method, "status":payment.status, "cost":payment.total_cost, "created_at":payment.created_at,
-                    "product":payment.product, "amount":payment.amount, "fragment_id":payment.fragment_id, "sender_id":payment.sender_id, "recipient_username":payment.recipient_username}
+        info_payment = {"payment_method":payment.payment_method, "status":payment.status,
+                        "cost":payment.total_cost, "created_at":payment.created_at,"product":payment.product,
+                        "amount":payment.amount, "fragment_id":payment.fragment_id,
+                        "sender_id":payment.sender_id, "recipient_username":payment.recipient_username}
         return info_payment
     else:
         return None

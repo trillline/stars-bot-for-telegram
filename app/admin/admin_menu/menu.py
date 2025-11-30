@@ -4,6 +4,7 @@ from aiogram.types import CallbackQuery
 from config import load_config
 from app.admin.admin_menu.keyboard import admin_panel_keyboard
 from data_redis import RAMdata
+from logs.logging_bot import logger
 
 admin_menu_router = Router()
 
@@ -13,9 +14,9 @@ config = load_config()
 async def admin_panel_main(callback: CallbackQuery,state:FSMContext, bot: Bot):
     await bot.delete_message(callback.message.chat.id,callback.message.message_id)
     await state.set_state(None)
+    logger.info(f"Переход в админ-панель. Пользователь: {callback.from_user.username}")
     text = "🫡 Приветствую на борту, Босс!\n\n⬇️ Возьмите управление на себя\n"
-    tech_mode_bytes = await RAMdata.get("global_mode")
-    tech_mode = str(tech_mode_bytes)[1:].strip('\'')
+    tech_mode = await RAMdata.get("global_mode")
     if tech_mode == "mode_on":
         text += "\n<b>ТЕХНИЧЕСКИЙ РЕЖИМ ВКЛЮЧЕН</b>✅🛠️"
     await callback.message.answer_photo(caption=text,

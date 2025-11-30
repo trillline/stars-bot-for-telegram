@@ -5,6 +5,7 @@ from config import load_config
 from app.admin.fee_settings import keyboard
 from app.admin.states import ChangeFee
 from settings import set_setting
+from logs.logging_bot import logger
 
 fee_settings_router = Router()
 config = load_config()
@@ -32,9 +33,11 @@ async def change_fee_service(message: Message, state: FSMContext, bot: Bot):
     if all(list(map(lambda x: ord(x) in [i for i in range(ord('0'), ord('9') + 1)], fee))):
         await set_setting(key=f"{service}_fee", value=fee)
         await state.set_state(None)
+        logger.info(f"Комиссия {service} изменена на {fee}%")
         await message.answer(text=f"Комиссия {service} изменена на {fee}%",
                              reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="ОК 🫡", callback_data="admin_panel")]]))
     else:
+        logger.warning("Ошибка. Неправильный ввод % комиссии.")
         await message.answer(text=f"Ошибка. Попробуйте ввести % комиссии ещё раз.",
                              reply_markup=keyboard.fee_settings_step2_keyboard())
 

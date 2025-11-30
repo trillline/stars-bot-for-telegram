@@ -55,7 +55,7 @@ async def check_referral(callback: CallbackQuery):
     text=(f"👥<b> Список рефералов</b>"
           f"\n\nСтруктура списка:\n<i>username : заработано</i>\n")
     for ref in referrals:
-        text += f"\n@{ref['referral_username']} : {round(float(ref['earned_by_referrer']),2)} $"
+        text += f"\n@{ref['referral_username']} : {round(float(ref['earned_by_referrer']),3)} $"
 
     await callback.message.edit_caption(photo=config.visuals.photo_file, caption=text,
                                         reply_markup=keyboard.info, parse_mode="HTML")

@@ -7,14 +7,12 @@ import redis
 from data_redis import RAMdata
 from aiogram.fsm.storage.redis import RedisStorage
 
-
 from app.main.main_handler import main_router
 from app.user.premium.premium_handlers import premium_router
 from app.user.stars.stars_handlers import stars_router
 from app.user.profile.profile_handler import profile_router
 from app.user.info.info_handler import info_router
 from app.user.referral.referral_handlers import referral_router
-
 
 from app.admin.admin_menu.menu import admin_menu_router
 from app.admin.price_settings.price import price_settings_router
@@ -33,7 +31,7 @@ async def start_bot():
 
 
     try:
-        fsm_redis = redis.asyncio.Redis(host=config.redis.host, port=config.redis.port, db=config.redis.db_fsm)
+        fsm_redis = redis.asyncio.Redis(host=config.redis.host, port=config.redis.port, db=config.redis.db_fsm, decode_responses=True)
         storage = RedisStorage(redis=fsm_redis)
         logger.info("Connection to Redis completed successfully")
     except Exception:

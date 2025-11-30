@@ -8,7 +8,6 @@ from database.models import Setting
 from logs.logging_bot import logger
 
 
-
 async def check_def_settings(session: AsyncSession, key:str,value:str, settings):
     if not any(k["key"] == key for k in settings):
         await SettingDAO.add(session=session, key=key, value=value)
@@ -61,7 +60,7 @@ async def get_setting(key:str) -> str:
         logger.info(f"got {key} from PostgreSQL")
         return db_setting_value
     logger.info(f"got {key} from Redis")
-    return str(setting)[1:].strip('\'')
+    return setting
 
 # вспомогательная функция для функции получения настройки
 @connection

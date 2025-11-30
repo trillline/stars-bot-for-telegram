@@ -210,8 +210,6 @@ async def get_exchange_rates(force_refresh: bool = False) -> Dict[str, Any]:
 
                         valid_rates = [rate for rate in rates if rate.get("is_valid", False)]
 
-                        logger.info(f"Список курсов: {valid_rates}")
-
                         logger.info(f"Получено {len(valid_rates)} актуальных курсов валют")
                         return {
                             "success": True,

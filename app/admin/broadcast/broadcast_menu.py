@@ -11,21 +11,9 @@ from aiogram.exceptions import TelegramForbiddenError
 broadcast_router = Router()
 
 async def get_broadcast_data():
-    text_bytes = await RAMdata.get("broadcast_text")
-    logger.info(f"text_bytes = {text_bytes}, type = {type(text_bytes)}")
-    if text_bytes is not None:
-        text = text_bytes.decode("utf-8") # декодируем байт-строку из-за использования кириллицы
-        logger.info(f"text_bytes is not None. text = {text}")
-    else:
-        text = None
-        logger.info(f"text_bytes is None. text is None")
-    photo_bytes = await RAMdata.get("broadcast_photo")
-    if photo_bytes is not None:
-        photo = str(photo_bytes)[1:].strip('\'')
-    else:
-        photo = None
-    button_bytes = await RAMdata.get("broadcast_button")
-    button = str(button_bytes)[1:].strip('\'')
+    text = await RAMdata.get("broadcast_text")
+    photo = await RAMdata.get("broadcast_photo")
+    button = await RAMdata.get("broadcast_button")
     return {"broadcast_text":text, "broadcast_photo":photo, "broadcast_button":button}
 
 
@@ -33,14 +21,17 @@ async def get_broadcast_data():
 async def broadcast_text(callback: CallbackQuery,state: FSMContext, bot: Bot):
     await bot.delete_message(callback.message.chat.id, callback.message.message_id)
     await RAMdata.delete("broadcast_text", "broadcast_photo", "broadcast_button")
+    logger.info("Переход в рассылку в админ-панели")
     await callback.message.answer(text='<b>Отправь мне текст для рассылки или нажми на кнопку "Нет текста"</b>\n\n',
                           reply_markup=kb.broadcast_text(),
                                   parse_mode="HTML")
     await state.set_state(Broadcast.wait_text)
 
+
 @broadcast_router.callback_query(F.data == "no_text_broadcast")
 @broadcast_router.message(Broadcast.wait_text)
 async def broadcast_photo(event: CallbackQuery | Message, state:FSMContext, bot: Bot):
+    await RAMdata.delete("broadcast_photo")
     if isinstance(event, Message):
         target = event
         text = target.text
@@ -71,7 +62,7 @@ async def broadcast_button(event: CallbackQuery | Message, state:FSMContext, bot
 
 @broadcast_router.callback_query(F.data.startswith("broadcast_button"))
 @broadcast_router.message(Broadcast.wait_final, F.text.lower() == "назад")
-async def complete_broadcast(event: Message | CallbackQuery, bot: Bot):
+async def complete_broadcast(event: Message | CallbackQuery, state: FSMContext, bot: Bot):
     if isinstance(event, CallbackQuery):
         target = event.message
         button = event.data.split("_")[-1]
@@ -79,6 +70,8 @@ async def complete_broadcast(event: Message | CallbackQuery, bot: Bot):
         await bot.delete_message(target.chat.id, target.message_id)
     else:
         target = event
+    await state.set_state(None)
+    logger.info("Рассылка создана!")
     await target.answer(text="<b>Создание рассылки завершено!</b>\n\n"
                             'Для отправки напишите "отправить"\n'
                              'Для возвращения назад напишите "назад"',
@@ -89,7 +82,6 @@ async def complete_broadcast(event: Message | CallbackQuery, bot: Bot):
 async def checking_broadcast(callback: CallbackQuery,state:FSMContext, bot: Bot):
     await bot.delete_message(callback.message.chat.id, callback.message.message_id)
     data = await get_broadcast_data()
-
     if data["broadcast_photo"] is not None:
         await callback.message.answer_photo(caption=data["broadcast_text"],
                                             reply_markup=kb.get_button(data["broadcast_button"], "fake"),
@@ -116,15 +108,15 @@ async def send_broadcast(message: Message, bot: Bot):
             try:
                 await bot.send_photo(chat_id=chat_id,photo=data["broadcast_photo"],caption=data["broadcast_text"],reply_markup=kb.get_button(data["broadcast_button"]), parse_mode="HTML")
             except TelegramForbiddenError:
-                logger.error(f"the last id has been blocked bot")
+                logger.error(f"Последний ID заблокировал бота")
     else:
         for chat_id in chats_id:
             logger.info(f"chat id = {chat_id}")
             try:
                 await bot.send_message(chat_id=chat_id, text=data["broadcast_text"], reply_markup=kb.get_button(data["broadcast_button"]), parse_mode="HTML")
             except TelegramForbiddenError:
-                logger.error(f"the last id has been blocked bot")
-
+                logger.error(f"Последний ID заблокировал бота")
+    logger.info("Рассылка отправлена!")
     await message.answer(text="✅ Рассылка завершена",
                          reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                              [InlineKeyboardButton(text="🏠 Вернуться к главному меню", callback_data="admin_panel")]

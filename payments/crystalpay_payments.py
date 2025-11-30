@@ -15,7 +15,7 @@ async def create_invoice(amount: float, sender_user_id: int, recipient_username:
             "lifetime": 15,
             "redirect_url": f"https://t.me/{config.bot.username}",
             "callback_url": f"{config.links.webhook_url}/crystalpay/invoice/",
-            "extra":f"{sender_user_id}_{recipient_username}_{product}_{amount_prod}"
+            "extra":f"{sender_user_id}!{recipient_username}!{product}!{amount_prod}"
         }
         async with aiohttp.ClientSession() as session:
             async with session.post(url=f"{base_url}/invoice/create/", json=body) as response:

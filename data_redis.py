@@ -8,7 +8,7 @@ config = load_config()
 
 class RAMdata:
 
-    data_redis = redis.asyncio.Redis(host=config.redis.host, port=config.redis.port, db=config.redis.db_data)
+    data_redis = redis.asyncio.Redis(host=config.redis.host, port=config.redis.port, db=config.redis.db_data, decode_responses=True)
 
     @staticmethod
     async def set(key: str, value, ttl = None):

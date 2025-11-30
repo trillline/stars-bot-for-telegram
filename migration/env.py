@@ -9,16 +9,18 @@ from alembic import context
 from database.db_settings import DSN
 from database.base_model import Base
 from database.models import User, Payment, Setting, Referral #noqa
+#from config import load_config
 
 config = context.config
-config.set_main_option("sqlalchemy.url", DSN)
+
+#dsn = load_config().links.database_localhost_link
+dsn = DSN
+config.set_main_option("sqlalchemy.url", dsn)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-
 target_metadata = Base.metadata
-
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.

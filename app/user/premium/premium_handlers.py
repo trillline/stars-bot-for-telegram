@@ -12,13 +12,12 @@ from app.middlewares.user_middleware import GlobalStateMiddleware
 
 from settings import get_setting
 import payments.cryptobot_payments as Cryptobot
-from database.requests import add_payment, get_user_referrer_balance, update_referrer_balance
+from database.requests import add_payment, get_user_referrer_balance, update_referrer_balance, give_referrer_reward
 from payments.cryptobot_check_payment import check_payment_loop
 from payments.cryptobot_payments import get_current_rate
-from notifications.notifications_admin import notify_admin_about_payment, notify_if_fragment_balance_is_not_enough
 from logs.logging_bot import logger
 from fragment.fragment_queue_buying import purchase_queue
-import payments.crystalpay as Crystalpay
+import payments.crystalpay_payments as Crystalpay
 
 config = load_config()
 
@@ -34,7 +33,7 @@ async def choose_owner(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await state.clear()
     await state.update_data(type_purchase='premium')
 
-    await callback.message.answer_photo(photo=callback.message.photo[-1].file_id,caption="""
+    await callback.message.answer_photo(photo=config.visuals.photo_file,caption="""
 👑<b>Покупка премиум-подписки</b>
 
 🔎Выберите, кому будем отправлять подписку:""",
@@ -80,7 +79,7 @@ async def input_user_owner_stars(message: Message, state:FSMContext):
         await state.update_data(username=message.text.replace("@", ''))  # ПОМЕНЯТЬ НА СОХРАНЕНИЕ В БД И ОЧИСТКУ ИЗ ОП
         await message.answer_photo(photo=config.visuals.photo_file,
                                    caption=f"⭐<b>Покупка премиум-подписки</b>\n"
-                                           f"\n👤<b>Username: @{username_own_stars}</b> \n"
+                                           f"\n👤<b>Username:</b> @{username_own_stars} \n"
                                            f"⚠️<b>Проверьте username перед покупкой!</b>",
                                    reply_markup=kb.accept_entered_username_stars_keyboard,
                                    parse_mode="HTML")
@@ -102,7 +101,7 @@ async def choose_other_user_owner(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_caption(caption=f"""
 👑<b>Покупка премиум-подписки</b>
 
-🔎<b>Введите username пользователя</b>, которому будем дарить подписку:
+🔎Введите username пользователя, которому будем дарить подписку:
 — Пример: @{callback.from_user.username}""",
                                         reply_markup=kb.Go_back_to_choose_owner_keyboard,
                                         parse_mode="HTML")
@@ -126,13 +125,15 @@ async def entered_premium_month(callback: CallbackQuery, state: FSMContext):
 
 
     await callback.message.edit_caption(caption=f"""
-👑<b>Выбранная подписка: Премиум на {months} мес.</b>
+👑Выбранная подписка: <b> Премиум на {months} мес.</b>
 
 👤<b>Получатель:</b> @{username}
 
-💰<b>Стоимость: {price} ₽</b>
+💰<b>Стоимость:</b> {price} ₽
 
-👇<b>Выберите метод оплаты</b>👇""",
+⚠️<b><u>Убедитесь что у @{username} отсутствует премиум-подписка.</u></b>
+
+👇Выберите метод оплаты👇""",
                                         reply_markup=kb.Payment_methods_premium_keyboard,
                                         parse_mode="HTML")
 
@@ -214,7 +215,7 @@ async def payment_to_cryptobot_for_purchasing_premium(callback: CallbackQuery, s
 @premium_router.callback_query(F.data == "referrer_balance_payment_premium")
 async def payment_to_ref_balance_for_purchasing_premium(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.answer()
-
+    user_id = callback.from_user.id
     data = await state.get_data()
 
     months = data["month"]
@@ -223,24 +224,25 @@ async def payment_to_ref_balance_for_purchasing_premium(callback: CallbackQuery,
     usdt_to_rub = await get_current_rate("USDT", "RUB")  # находим актуальный курс доллара
     result = await get_user_referrer_balance(user_id=callback.from_user.id)
     balance = float(result) * usdt_to_rub
+    recipient_username = data["username"]
 
     if balance >= int(price):
-        await notify_if_fragment_balance_is_not_enough(amount_fiat=float(price), bot=bot)
+
         order_number = uuid.uuid4().hex[:16]
         data_payment = {"payment_method": "referrer_balance", "cost": int(price), "fee": 0,
                         "total_cost": int(price),
-                        "sender_id": callback.from_user.id, "product": "stars", "amount": int(data["month"]),
+                        "sender_id": user_id, "product": "stars", "amount": int(months),
                         "invoice_id": order_number,
-                        "recipient_username": data["username"], "status":"paid"}
+                        "recipient_username": recipient_username, "status":"paid"}
         await add_payment(data=data_payment)  # добавляем в БД данные о платеже
+        new_balance = round((balance - int(price)) / usdt_to_rub, 4)
         await update_referrer_balance(user_id=callback.from_user.id,
-                                      new_balance=round((balance - int(price)) / usdt_to_rub, 4))
+                                      new_balance=new_balance)
 
-        await notify_admin_about_payment(invoice_id=order_number, username_recipient=data["username"],
-                                         product="premium",
-                                         amount=data["month"], bot=bot)
-
-        await callback.message.edit_caption(caption=f"✅ <b>Оплата прошла успешно.</b>\n\n⭐ Номер заказа: {order_number}\nВозможны задержки до 5 минут.",
+        await purchase_queue.put(
+            {"username": recipient_username, "amount": int(months), "product": "premium", "invoice_id": order_number,
+             "bot": bot, "admin_message":False})
+        await callback.message.edit_caption(caption=f"✅ <b>Оплата прошла успешно.</b>\n\n👑 Номер заказа: {order_number}\nВозможны задержки до 5 минут.",
                                             parse_mode="HTML")
     else:
 

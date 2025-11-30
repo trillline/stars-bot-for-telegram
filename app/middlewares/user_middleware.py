@@ -28,8 +28,8 @@ class GlobalStateMiddleware(BaseMiddleware):
         state: FSMContext = data.get("state") # ДОБАВИТЬ ЛОГИКУ С СОСТОЯНИЕМ В КЛЮЧЕВЫХ ВАЖНЫХ МОМЕНТАХ (оплата, ожидание)
         bot: Bot = data.get("bot")
         # получаем информацию о техническом режиме
-        mode = await RAMdata.get("global_mode")
-        global_mode = str(mode)[1:].strip("\'") # превращаем байт-строку в нормальную строку
+        global_mode = await RAMdata.get("global_mode")
+
         logger.info(f"global_mode_key is {global_mode}")
 
         user_id = data["event_from_user"].id

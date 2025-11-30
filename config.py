@@ -61,6 +61,7 @@ class LinkConfig:
     webhook_url: str
     news_link: str
     support_link: str
+    database_localhost_link: str
 
 @dataclass
 class Config:
@@ -100,7 +101,8 @@ def load_config() -> Config:
         links = LinkConfig(
             webhook_url = os.getenv("WEBHOOK_URL"),
             news_link=os.getenv("NEWS_LINK"),
-            support_link=os.getenv("SUPPORT_LINK")
+            support_link=os.getenv("SUPPORT_LINK"),
+            database_localhost_link=f"postgresql+asyncpg://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@localhost:{os.getenv('DB_LOCAL_PORT')}/{os.getenv('DB_NAME')}"
         ),
         cryptobot=CryptoBotConfig(
             api_key=os.getenv("CRYPTOBOT_TOKEN"),

@@ -5,7 +5,6 @@ from payments.cryptobot_payments import get_invoice_info
 from database.requests import update_status_payment, give_referrer_reward, update_fragment_id
 from aiogram import Bot
 from logs.logging_bot import logger
-from notifications.notifications_admin import notify_admin_about_payment, notify_if_fragment_balance_is_not_enough
 import time
 from fragment.fragment_queue_buying import purchase_queue
 
@@ -25,8 +24,6 @@ async def check_payment_loop(invoice_id: str, user_id: int, username: str,bot: B
             if invoice["status"] == "paid":
 
                 amount_rub = float(invoice["amount"])
-
-                await notify_if_fragment_balance_is_not_enough(amount_fiat=amount_rub, bot=bot)
 
                 await update_status_payment(invoice_id=invoice_id,status= "paid")
 
