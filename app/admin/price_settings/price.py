@@ -19,7 +19,7 @@ async def price_settings(callback:CallbackQuery, bot:Bot):
     premium_3 = await get_setting("price_premium_3")
     premium_6 = await get_setting("price_premium_6")
     premium_12 = await get_setting("price_premium_12")
-    text = f"<b>Окей. Какие цены будем менять?</b>\n\n⭐ Курс 1 звезды = {star_course} ₽\n👑 Премиум 3 мес. = {premium_3} ₽\n👑 Премиум 6 мес. = {premium_6}\n👑 Премиум 12 мес. = {premium_12}"
+    text = f"<b>Окей. Какие цены будем менять?</b>\n\n⭐ Курс 1 звезды = {star_course} ₽\n👑 Премиум 3 мес. = {premium_3} ₽\n👑 Премиум 6 мес. = {premium_6} ₽\n👑 Премиум 12 мес. = {premium_12} ₽"
     await callback.message.answer(text=text,
                                   reply_markup=keyboard.price_settings_step1_keyboard(),
                                   parse_mode="HTML")
