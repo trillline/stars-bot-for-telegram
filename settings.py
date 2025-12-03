@@ -38,7 +38,7 @@ async def set_default_settings(session: AsyncSession):
     await check_def_settings(session=session, key="price_premium_6", value="1550", settings=settings)
     await check_def_settings(session=session, key="price_premium_12", value="2500", settings=settings)
     await check_def_settings(session=session, key="cryptobot_fee", value="3", settings=settings)
-    await check_def_settings(session=session, key="crystalpay_fee", value="0", settings=settings)
+    await check_def_settings(session=session, key="crystalpay_fee", value="11", settings=settings)
 
 
 

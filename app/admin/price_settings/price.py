@@ -4,8 +4,9 @@ from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKe
 from config import load_config
 import app.admin.price_settings.keyboard as keyboard
 import app.admin.states as st
-from settings import set_setting
+from settings import set_setting, get_setting
 from logs.logging_bot import logger
+
 
 price_settings_router = Router()
 
@@ -14,7 +15,12 @@ config = load_config()
 @price_settings_router.callback_query(F.data == "admin_change_price",F.from_user.id == config.bot.admin_id)
 async def price_settings(callback:CallbackQuery, bot:Bot):
     await bot.delete_message(callback.message.chat.id, callback.message.message_id)
-    await callback.message.answer(text="<b>Окей. Какие цены будем менять?</b>",
+    star_course = await get_setting("star_course")
+    premium_3 = await get_setting("price_premium_3")
+    premium_6 = await get_setting("price_premium_6")
+    premium_12 = await get_setting("price_premium_12")
+    text = f"<b>Окей. Какие цены будем менять?</b>\n\n⭐ Курс 1 звезды = {star_course} ₽\n👑 Премиум 3 мес. = {premium_3} ₽\n👑 Премиум 6 мес. = {premium_6}\n👑 Премиум 12 мес. = {premium_12}"
+    await callback.message.answer(text=text,
                                   reply_markup=keyboard.price_settings_step1_keyboard(),
                                   parse_mode="HTML")
 

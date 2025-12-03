@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func, join
 
 from database.db_settings import connection
-from database.models import User, Referral, Payment
+from database.models import User, Referral, Payment, Setting
 from database.dao.dao import UserDAO, ReferralDAO, PaymentDAO
 from logs.logging_bot import logger
 from datetime import datetime
@@ -273,3 +273,4 @@ async def update_referrer_balance(session: AsyncSession, user_id, new_balance):
     stmt = update(User).filter_by(telegram_id=user_id).values(referrer_balance=new_balance)
     await session.execute(stmt)
     await session.commit()
+

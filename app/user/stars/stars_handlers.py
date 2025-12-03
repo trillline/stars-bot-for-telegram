@@ -161,7 +161,7 @@ async def entered_amount_stars(callback: CallbackQuery, state:FSMContext):
     
 👇Выберите метод оплаты👇
             """,
-                                            reply_markup=kb.Payment_methods_stars_keyboard,
+                                            reply_markup= await kb.payment_methods_stars_keyboard(),
                                             parse_mode='HTML')
 
 
@@ -192,7 +192,7 @@ async def entered_amount_stars(message: Message, state:FSMContext):
 
 👇Выберите метод оплаты👇
         """,
-                                        reply_markup=kb.Payment_methods_stars_keyboard,
+                                        reply_markup=await kb.payment_methods_stars_keyboard(),
                                         parse_mode='HTML')
 
 
@@ -209,33 +209,6 @@ async def entered_amount_stars(message:Message):
 """,
                                         reply_markup= kb.Input_amount_stars_keyboard,
                                         parse_mode='HTML')
-
-
-@stars_router.callback_query(F.data == "sbp_payment_stars")
-async def payment_to_sbp_for_purchasing_stars(callback: CallbackQuery, state: FSMContext):
-    await callback.answer()
-
-    await state.set_state(None)
-    await state.update_data(type_payment="sbp")
-    data = await state.get_data()
-    amount = data.get("amount")
-    star_price = await get_setting(key="star_course")  # цена одной звезды в рублях (тип данных string)
-    fee = await get_setting(key="cardlink_fee") # комиссия
-
-    await callback.message.edit_caption(caption=f"""
-💫Для покупки {amount} звёзд:
-
-<b>1. Нажмите кнопку "Оплатить по СБП"</b>
-<b>2. Завершите оплату на открывшейся странице</b>
-
-👤Получатель: @{data['username']}
-💵Сумма к оплате: {round(int(data['amount'])*float(star_price), 2)} ₽ 
-⚠️Комиссия кассы: {fee}% 
-
-✅ После оплаты бот получит оповещение и автоматически обработает заказ""",
-                                        reply_markup=kb.cardlink_payment_keyboard("https://vk.com"),
-                                        parse_mode="HTML")
-
 
 
 
@@ -338,6 +311,7 @@ async def payment_to_crystalpay_for_purchasing_star(callback: CallbackQuery, sta
     star_price = await get_setting(key="star_course")  # цена одной звезды в рублях (тип данных string)
     fee = await get_setting(key="crystalpay_fee")
     amount_fiat = round(int(amount) * float(star_price), 2)
+    amount_fiat_with_fee = amount_fiat * (int(fee)/100) + amount_fiat
     recipient_username = data.get("username")
 
     created_invoice = await Crystalpay.create_invoice(amount=amount_fiat,
@@ -354,7 +328,7 @@ async def payment_to_crystalpay_for_purchasing_star(callback: CallbackQuery, sta
         invoice_id = created_invoice.get("invoice_id")
 
         data_payment = {"payment_method": "crystalpay", "cost": amount_fiat, "fee": int(fee),
-                        "total_cost": amount_fiat,
+                        "total_cost": amount_fiat_with_fee,
                         "sender_id": callback.from_user.id, "product": "stars", "amount": int(data["amount"]),
                         "invoice_id": invoice_id,
                         "recipient_username": data["username"]}
@@ -364,8 +338,8 @@ async def payment_to_crystalpay_for_purchasing_star(callback: CallbackQuery, sta
         await callback.message.edit_caption(caption=f"""
 💫Для покупки {amount} звёзд:
     
-<b>1. Нажмите кнопку "Оплатить CrystalPay"</b>
-<b>2. Выберите криптовалюту на открывшейся странице</b>
+<b>1. Нажмите кнопку "Оплатить СБП"</b>
+<b>2. Выберите метод оплаты на открывшейся странице</b>
 <b>3. Завершите оплату</b>
     
 💡Номер заказа: {invoice_id}
@@ -384,3 +358,32 @@ async def payment_to_crystalpay_for_purchasing_star(callback: CallbackQuery, sta
                                                 [InlineKeyboardButton(text="🏠 На главное меню", callback_data="to_main_menu")]
                                             ]),
                                             parse_mode="HTML")
+
+
+@stars_router.callback_query(F.data == "sbp_card_payment_stars")
+async def payment_to_sbp_card_for_purchasing_star(callback: CallbackQuery, state: FSMContext, bot: Bot):
+    await callback.answer()
+
+    await state.set_state(None)
+    data = await state.get_data()
+    amount = data.get("amount")
+    recipient_username = data.get("username")
+
+    bot_url = config.links.support_link
+    text=f"#БезКомиссии.\n⭐ Товар: {amount} звёзд\n👤 Получатель: @{recipient_username}\nКак оплатить?"
+
+    await callback.message.edit_caption(caption=f"""
+💫Для покупки {amount} звёзд:
+
+<b>1. Нажмите на следующее сообщение, чтобы скопировать или просто скопируйте:</b>
+
+<code>{text}</code>
+
+<b>2. Нажмите кнопку "Оплатить СБП"</b>
+<b>3. Отправьте скопированное сообщение, нажмите на кнопку "Ответить" в ответном сообщении.</b>
+<b>4. Получите реквизиты для оплаты</b>
+<b>5. Оплатите и ожидайте зачисления звёзд.</b>
+
+    """,
+                                        reply_markup= kb.sbp_card_payment_keyboard(bot_url),
+                                        parse_mode="HTML")

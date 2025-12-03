@@ -4,7 +4,7 @@ from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKe
 from config import load_config
 from app.admin.fee_settings import keyboard
 from app.admin.states import ChangeFee
-from settings import set_setting
+from settings import set_setting, get_setting
 from logs.logging_bot import logger
 
 fee_settings_router = Router()
@@ -13,8 +13,12 @@ config = load_config()
 @fee_settings_router.callback_query(F.data == "admin_change_fee", F.from_user.id == config.bot.admin_id)
 async def fee_settings(callback: CallbackQuery, bot: Bot):
     await bot.delete_message(callback.message.chat.id, callback.message.message_id)
-    await callback.message.answer(text=f"Окей. Комиссию какого сервиса будем менять?",
-                          reply_markup=keyboard.fee_settings_step1_keyboard())
+    cryptobot_fee = await get_setting("cryptobot_fee")
+    crystalpay_fee = await get_setting("crystalpay_fee")
+    text = f"<b>Окей. Комиссию какого сервиса будем менять?</b>\n\n💎 CryptoBot {cryptobot_fee}% комиссии\n💳 CrystalPay {crystalpay_fee}% комиссии"
+    await callback.message.answer(text=text,
+                                  reply_markup=keyboard.fee_settings_step1_keyboard(),
+                                  parse_mode="HTML")
 
 @fee_settings_router.callback_query(F.data.startswith("change_fee"), F.from_user.id == config.bot.admin_id)
 async def set_fee_service(callback: CallbackQuery,state: FSMContext, bot: Bot):

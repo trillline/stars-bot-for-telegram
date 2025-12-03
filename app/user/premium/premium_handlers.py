@@ -134,34 +134,7 @@ async def entered_premium_month(callback: CallbackQuery, state: FSMContext):
 ⚠️<b><u>Убедитесь что у @{username} отсутствует премиум-подписка.</u></b>
 
 👇Выберите метод оплаты👇""",
-                                        reply_markup=kb.Payment_methods_premium_keyboard,
-                                        parse_mode="HTML")
-
-
-
-@premium_router.callback_query(F.data == "sbp_payment_premium")
-async def payment_to_sbp_for_purchasing_premium(callback: CallbackQuery, state: FSMContext):
-    await callback.answer()
-
-    await state.set_state(None)
-    await state.update_data(type_payment="sbp")
-    data = await state.get_data()
-    months = data.get("month")
-    price = await get_setting(f"price_premium_{months}")  # приходит в виде строки
-    fee = await get_setting("cardlink_fee") # строка
-
-    await callback.message.edit_caption(caption=f"""
-👑Для покупки премиум-подписки на {months} мес:
-
-<b>1. Нажмите кнопку "Оплатить по СБП"</b>
-<b>2. Завершите оплату на открывшейся странице</b>
-
-👤Получатель: @{data['username']}
-💵Сумма к оплате: {price}₽ 
-⚠️Комиссия кассы: {fee}% 
-
-✅ После оплаты бот получит оповещение и автоматически обработает заказ""",
-                                        reply_markup=kb.Sbp_premium_keyboard,
+                                        reply_markup=await kb.payment_methods_premium_keyboard(),
                                         parse_mode="HTML")
 
 
@@ -254,7 +227,7 @@ async def payment_to_ref_balance_for_purchasing_premium(callback: CallbackQuery,
 
 
 @premium_router.callback_query(F.data == "crystalpay_payment_premium")
-async def payment_to_crystalpay_for_purchasing_star(callback: CallbackQuery, state: FSMContext, bot: Bot):
+async def payment_to_crystalpay_for_purchasing_premium(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.answer()
 
     await state.set_state(None)
@@ -286,7 +259,7 @@ async def payment_to_crystalpay_for_purchasing_star(callback: CallbackQuery, sta
         await callback.message.edit_caption(caption=f"""
 👑Для покупки премиум-подписки на {months} мес:
     
-<b>1. Нажмите кнопку "Оплатить Crystalpay"</b>
+<b>1. Нажмите кнопку "Оплатить СБП"</b>
 <b>2. Выберите криптовалюту на открывшейся странице</b>
 <b>3. Завершите оплату</b>
     
@@ -296,7 +269,7 @@ async def payment_to_crystalpay_for_purchasing_star(callback: CallbackQuery, sta
 💵Сумма к оплате: {price}₽ 
     
 ✅ После оплаты бот получит оповещение и автоматически обработает заказ""",
-                                            reply_markup=kb.cryptobot_premium_keyboard(pay_url),
+                                            reply_markup=kb.crystalpay_premium_keyboard(pay_url),
                                             parse_mode="HTML")
     else:
         logger.info(f"Invoice errors: {created_invoice.get('errors')}")
@@ -307,3 +280,31 @@ async def payment_to_crystalpay_for_purchasing_star(callback: CallbackQuery, sta
                                                                       callback_data="to_main_menu")]
                                             ]),
                                             parse_mode="HTML")
+
+@premium_router.callback_query(F.data=="sbp_card_payment_premium")
+async def payment_to_sbp_card_for_purchasing_premium(callback: CallbackQuery, state:FSMContext, bot: Bot):
+    await callback.answer()
+
+    await state.set_state(None)
+    data = await state.get_data()
+    months = data.get("month")
+    recipient_username = data.get("username")
+
+    bot_url = config.links.support_link
+    text = f"#БезКомиссии.\n👑 Товар: {months} мес. премиум-подписки\n👤 Получатель: @{recipient_username}\nКак оплатить?"
+
+    await callback.message.edit_caption(caption=f"""
+👑Для покупки премиум-подписки на {months} мес:
+
+<b>1. Нажмите на следующее сообщение, чтобы скопировать или просто скопируйте:</b>
+
+<code>{text}</code>
+
+<b>2. Нажмите кнопку "Оплатить СБП"</b>
+<b>3. Отправьте скопированное сообщение.</b>
+<b>4. Получите реквизиты для оплаты</b>
+<b>5. Оплатите и ожидайте зачисления премиум-подписки.</b>
+
+        """,
+                                        reply_markup=kb.sbp_card_premium_keyboard(bot_url),
+                                        parse_mode="HTML")

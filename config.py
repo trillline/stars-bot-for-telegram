@@ -1,6 +1,5 @@
 import os
 
-from aiogram.loggers import webhook
 from aiogram.types import FSInputFile
 from dotenv import load_dotenv
 from dataclasses import dataclass

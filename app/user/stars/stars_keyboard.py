@@ -1,7 +1,7 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from settings import get_setting
-
+import urllib.parse
 
 choose_stars_owner_keyboard= InlineKeyboardMarkup(inline_keyboard= [
     [InlineKeyboardButton(text="🫵 Себе",  callback_data=f"choose_stars_package_me"),InlineKeyboardButton(text="👤 Другому", callback_data="buy_stars_to_other_user")],
@@ -34,22 +34,19 @@ accept_entered_username_stars_keyboard=InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="❌ Отменить", callback_data="buy_stars_to_other_user")]
 ])
 
-Payment_methods_stars_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-    #[InlineKeyboardButton(text="🇷🇺 СБП | Рубли ", callback_data="sbp_payment_stars")],
-    [InlineKeyboardButton(text="🪙 CryptoBot | Крипта", callback_data="cryptobot_payment_stars")],
-    [InlineKeyboardButton(text="💎 CrystalPay | Крипта", callback_data="crystalpay_payment_stars")],
+async def payment_methods_stars_keyboard():
+    cryptobot_fee = await get_setting("cryptobot_fee")
+    crystalpay_fee = await get_setting("crystalpay_fee")
+    return InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text=f"💎 CryptoBot | {cryptobot_fee}% ", callback_data="cryptobot_payment_stars")],
+    [InlineKeyboardButton(text="🇷🇺 СБП рубли | Без комиссии", callback_data="sbp_card_payment_stars")],
+    [InlineKeyboardButton(text=f"🇷🇺 СБП рубли | {crystalpay_fee}%", callback_data="crystalpay_payment_stars")],
     [InlineKeyboardButton(text="👥 Реферальный баланс", callback_data="referrer_balance_payment_stars")],
     [InlineKeyboardButton(text="🔙 Назад", callback_data="choose_stars_package")]
 ])
 
 Input_amount_stars_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="🔙 Назад", callback_data="choose_stars_package")]
-])
-
-def cardlink_payment_keyboard(pay_url):
-    return InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="💳 Оплатить по СБП", url="https://pointerpointer.com/%EF%BF%BC%EF%BF%BC%D0%A1%D0%B0%D0%B9%D1%82")],
-    [InlineKeyboardButton(text="🔙 Назад", callback_data="buy_stars_back")]
 ])
 
 def cryptobot_payment_keyboard(pay_url):
@@ -60,7 +57,12 @@ def cryptobot_payment_keyboard(pay_url):
 
 def crystalpay_payment_keyboard(pay_url):
     return InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="💳 Оплатить CrystalPay", url = pay_url)],
+    [InlineKeyboardButton(text="💳 Оплатить СБП", url = pay_url)],
     [InlineKeyboardButton(text="🔙 Назад", callback_data='buy_stars_back')]
 ])
 
+def sbp_card_payment_keyboard(bot_url):
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💳 Оплатить СБП", url=f"{bot_url}?start=sbp")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data='buy_stars_back')]
+    ])
