@@ -29,7 +29,7 @@ async def retry_request(recipient_username, amount_product, product, bot, invoic
                 logger.info(f"product = {product}, поэтому result = None")
                 result = None
             logger.info(f"Result: {result}")
-            if result.get("status") == 200:
+            if result.get("status") == 200 or result.get("status") >= 500: # ответ ок или сервер не отвечает
                 return result
             elif result.get("status") == 400 and result.get("error").startswith("Not enough funds for wallet"):
                  if not admin_message:
@@ -67,8 +67,12 @@ async def purchase_worker():
         logger.info(f"Выполняется задание в worker: {username} {amount} {product} {invoice_id}")
         try:
             result = await retry_request(recipient_username=username,amount_product= amount, product=product, bot=bot, invoice_id=invoice_id, admin_message=admin_message)
-            if result.get("status") == 200 and result.get("success"):
-                await update_fragment_id(invoice_id=invoice_id, fragment_id=result.get("id"))
+            if result.get("status") == 200:
+                if result.get("success"):
+                    await update_fragment_id(invoice_id=invoice_id, fragment_id=result.get("id"))
+            else:
+                logger.error(f"Ошибка сервера {result.get('status')}. Username получателя: {username}, "
+                             f"{amount} {'звёзд' if amount == 'stars' else 'мес. прем'}, invoice id: {invoice_id}")
         except RuntimeError as e:
             logger.info(f"Error: {e}")
         finally:

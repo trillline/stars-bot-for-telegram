@@ -27,19 +27,25 @@ async def buy_stars(username: str, amount: int):
 
         async with aiohttp.ClientSession() as session:
             async with session.post(url=f"{URL_fragment}/order/stars/", headers=headers, json=payload) as response:
-                result = await response.json()
+
                 if response.status == 200:
+                    result = await response.json()
                     data = {
                         "status": response.status,
                         "success": result.get("success"),
                         "id": result.get("id")
                     }
                     logger.info(f"Статус 200 для @{username}")
-                else:
+                elif response.status < 500:
+                    result = await response.json()
                     data = {
                         "status": response.status,
                         "error":result["errors"][0]["error"],
                         "code":result["errors"][0]["code"]
+                    }
+                else:
+                    data = {
+                        "status":response.status
                     }
                     logger.info(f"Статус {response.status} для @{username}")
                 return data
@@ -66,19 +72,25 @@ async def buy_premium(username: str, month: int):
 
         async with aiohttp.ClientSession() as session:
             async with session.post(url=f"{URL_fragment}/order/premium/", headers=headers, json=payload) as response:
-                result = await response.json()
+
                 if response.status == 200:
+                    result = await response.json()
                     data = {
                         "status": response.status,
                         "success": result.get("success"),
                         "id": result.get("id")
                     }
                     logger.info(f"Статус 200 для @{username}")
-                else:
+                elif response.status < 500:
+                    result = await response.json()
                     data = {
                         "status": response.status,
                         "error":result["errors"][0]["error"],
                         "code":result["errors"][0]["code"]
+                    }
+                else:
+                    data = {
+                        "status":response.status
                     }
                     logger.info(f"Статус {response.status} для @{username}")
                 return data
